@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -J 3e2h-test-p1
+#SBATCH --time=48:00:00
+#SBATCH --ntasks-per-node=28
+#SBATCH --cpus-per-task 1
+#SBATCH --nodes=2
+
+module purge
+module load gcc/7.4.0
+module load mvapich2/2.3.1
+module load gromacs/2019.2-mpi
+
+echo STARTING AT $(date)
+gmx_mpi grompp -f step5_production.mdp -o step5_1.tpr -c step4.1_equilibration.gro -n index.ndx -p topol.top
+srun gmx_mpi mdrun -deffnm step5_1 -ntomp 1 
+echo FINISHED AT $(date) 

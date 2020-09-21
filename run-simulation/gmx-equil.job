@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -J 3e2h-test-eq
+#SBATCH --time=24:00:00
+#SBATCH --ntasks-per-node=28
+#SBATCH --cpus-per-task 1
+#SBATCH --nodes=2
+
+module purge
+module load gcc/7.4.0
+module load mvapich2/2.3.1
+module load gromacs/2019.2-mpi
+
+echo STARTING AT $(date)
+gmx_mpi grompp -f step4.1_equilibration.mdp -o step4.1_equilibration.tpr -c step4.0_minimization.gro -r step3_charmm2gmx.pdb -n index.ndx -p topol.top
+srun gmx_mpi mdrun -v -deffnm step4.1_equilibration -ntomp 1
+echo FINISHED AT $(date) 

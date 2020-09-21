@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -J 3e2h-test-min
+#SBATCH --time=12:00:00
+#SBATCH --ntasks-per-node=28
+#SBATCH --cpus-per-task 1
+#SBATCH --nodes=2
+
+module purge
+module load gcc/7.4.0
+module load mvapich2/2.3.1
+module load gromacs/2019.2-mpi
+
+echo STARTING AT $(date)
+gmx_mpi grompp -f step4.0_minimization.mdp -o step4.0_minimization.tpr -c step3_charmm2gmx.pdb -r step3_charmm2gmx.pdb -p topol.top -maxwarn 1
+srun gmx_mpi mdrun -v -deffnm step4.0_minimization
+echo FINISHED AT $(date) 

@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J 3e2h-test-p2
+#SBATCH --time=72:00:00
+#SBATCH --ntasks-per-node=28
+#SBATCH --cpus-per-task 1
+#SBATCH --nodes=2
+
+module purge
+module load gcc/7.4.0
+module load mvapich2/2.3.1
+module load gromacs/2019.2-mpi
+
+echo STARTING AT $(date)
+srun gmx_mpi mdrun -deffnm step5_1 -noappend -cpi step5_1.cpt -ntomp 1
+echo FINISHED AT $(date) 
