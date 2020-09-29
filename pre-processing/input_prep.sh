@@ -2,18 +2,31 @@
 module purge
 module load gcc mvapich2 gromacs/2019.2-mpi
 
-#SET UP INPUT AND OUTPUT NAME; ONLY SUPPORT PDB FILE
+#SET UP INPUT AND OUTPUT NAME; ONLY SUPPORT PDB
 #THE INPUT FILE SHOULD BE ALREADY DEPROTONATED
-INPUT='dH_3E2H_enrich_best' #NO NEED TO ADD .PDB
-OUTPUT='3E2H_enrich_best'   #NO NEED TO ADD .PDB
+FILENAME=$1
+INPUT=$FILENAME    # NAME-OF-INPUT.PDB
+OUTPUT=$FILENAME   # NAME-OF-OUTPUT.PDB
 
-#GET THE FORCE FIELD FROM INTERNET
-wget http://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-mar2019.ff.tgz
-mv download.php?filename=CHARMM_ff_params_files%2Fcharmm36-mar2019.ff.tgz charmm36-mar2019.ff.tgz
-tar -xvf charmm36-mar2019.ff.tgz
-rm charmm36-mar2019.ff.tgz
+PDB_DIR='pdb'	         # NAME-OF-PDB-FILE-DIRECTORY
+OUTPUT_DIR=$FILENAME     # NAME-OF-OUTPUT-DIR
+OUTLOG="${FILENAME}/log" # NAME-OF-OUTPUT-LOG
 
-#CREATE INPUT FILE FOR PREPARATION
+if [ -d $OUTPUT_DIR ]; then
+    rm -rf $OUTPUT_DIR
+    mkdir ${OUTPUT_DIR}
+else
+    mkdir ${OUTPUT_DIR}
+fi
+
+##GET THE FORCE FIELD FROM INTERNET
+##UNCOMMENT IT IF THERE IS NO FORCE-FIELD DIRECTORY CALLED "charmm36-mar2019"
+#wget http://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-mar2019.ff.tgz
+#mv download.php?filename=CHARMM_ff_params_files%2Fcharmm36-mar2019.ff.tgz charmm36-mar2019.ff.tgz
+#tar -xvf charmm36-mar2019.ff.tgz
+#rm charmm36-mar2019.ff.tgz
+cp -r charmm36-mar2019.ff -t $OUTPUT_DIR
+
 cat > ions.mdp << EOF
 ; ions.mdp - used as input into grompp to generate ions.tpr
 ; Parameters describing what to do, when to stop and what to save
@@ -21,7 +34,6 @@ integrator  = steep         ; Algorithm (steep = steepest descent minimization)
 emtol       = 1000.0        ; Stop minimization when the maximum force < 1000.0 kJ/mol/nm
 emstep      = 0.01          ; Minimization step size
 nsteps      = 50000         ; Maximum number of (minimization) steps to perform
-
 ; Parameters describing how to find the neighbors of each atom and how to calculate the interactions
 nstlist         = 1         ; Frequency to update the neighbor list and long range forces
 cutoff-scheme   = Verlet    ; Buffered neighbor searching
@@ -34,19 +46,19 @@ EOF
 
 #START TO PROCESS FILES
 #SOLVATE SYSTEM
-echo "yes" | gmx_mpi pdb2gmx -f ${INPUT}.pdb -o ${OUTPUT}.gro -ff charmm36-mar2019 -water tip3p -ss yes
-gmx_mpi editconf -f ${OUTPUT}.gro -o ${OUTPUT}.gro -c -d 0.5 -bt cubic
-gmx_mpi solvate -cp ${OUTPUT}.gro -cs spc216.gro -o ${OUTPUT}.gro -p topol.top
-gmx_mpi grompp -f ions.mdp -c ${OUTPUT}.gro -p topol.top -o ions.tpr
-echo "13" | gmx_mpi genion -s ions.tpr -o ${OUTPUT}.gro -p topol.top -pname K -nname CL -neutral
-gmx_mpi editconf -f ${OUTPUT}.gro -o step3_charmm2gmx.pdb
-echo "q" | gmx_mpi make_ndx -f ${OUTPUT}.gro -o index.ndx
-rm \#* mdout.mdp posre.itp ions.*
+echo "yes\nyes" | gmx_mpi pdb2gmx -f ${PDB_DIR}/${INPUT}.pdb -o ${OUTPUT}.gro -ff charmm36-mar2019 -water tip3p -ss yes -ignh yes >> $OUTLOG |& >/dev/null
+gmx_mpi editconf -f ${OUTPUT}.gro -o ${OUTPUT}.gro -c -d 1.2 -bt cubic >> $OUTLOG |& >/dev/null #-d: sets the cubic edge to be (protein+12) Ang -c: center
+gmx_mpi solvate -cp ${OUTPUT}.gro -cs spc216.gro -o ${OUTPUT}.gro -p topol.top >> $OUTLOG &>/dev/null #-cp/cs: solute/solvent -p:input topology
+gmx_mpi grompp -f ions.mdp -c ${OUTPUT}.gro -p topol.top -o ions.tpr >> $OUTLOG |& >/dev/null #-c: structure file
+echo "13" |  gmx_mpi genion -s ions.tpr -o ${OUTPUT}.gro -p topol.top -pname K -nname CL -neutral >> $OUTLOG |& >/dev/null
+gmx_mpi editconf -f ${OUTPUT}.gro -o step3_charmm2gmx.pdb >> $OUTLOG |& >/dev/null
+echo "q" |   gmx_mpi make_ndx -f ${OUTPUT}.gro -o index.ndx >> $OUTLOG |& >/dev/null
+rm \#* mdout.mdp
 
 
 #CREATE INPUT FILE FOR MINIMIZATION, EQUILIBRATION AND PRODUCTION
 cat > step4.0_minimization.mdp << EOF
-define                  = -DREST_ON -DSTEP4_0
+define                  = -DREST_ON -DSTEP4_0 ;No idea about this option
 integrator              = steep
 emtol                   = 1000.0
 nsteps                  = 5000
@@ -148,3 +160,5 @@ comm_grps               = Protein Water_and_ions
 ;
 refcoord_scaling        = com
 EOF
+
+mv step* topol.top posre.itp ions* index.ndx *.gro -t $OUTPUT_DIR
