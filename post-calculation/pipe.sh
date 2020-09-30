@@ -3,6 +3,7 @@ LIST_REPLICA='r1 r2 r3 r4 r5'
 LIST_MODIFICATION='g b c'
 LIST_NUM_EACH='1 2 3'
 VMD_EXE='vmd'
+PYTHON_EXE='python'
 
 for p in $LIST_PROTEIN; do
     for m in $LIST_MODIFICATION; do
@@ -29,7 +30,11 @@ if [ $? -eq 0 ]; then
     fi
 
 cat > $OUT_DIR/$INPUT << EOF
-#read trj ;PATH: Windows
+
+##########
+#read trj#
+##########
+
 mol new $FIL_DIR/step3_charmm2gmx.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol addfile $FIL_DIR/step3_charmm2gmx.psf type psf first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 
@@ -38,10 +43,17 @@ mol addfile $FIL_DIR/step5_1-noPBC.xtc type xtc first 0 last -1 step 1 filebonds
 mol addfile $FIL_DIR/step5_1.part0002-noPBC.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol addfile $FIL_DIR/step5_1.part0003-noPBC.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 
-#delete frames 2500
+##################
+#set max duration#
+##################
+
 animate delete beg 2500 end 10000 skip -1
 
-#align all w.r.t protein CA at frame 0
+#########################
+#alignment w.r.t CA(t=0)#
+#########################
+#align all atoms w.r.t protein's alpha carbon CA at frame 0
+
 set ref [atomselect top "protein and name CA" frame 0]
 set sel [atomselect top "protein and name CA"]
 set all [atomselect top "all"]
@@ -53,7 +65,10 @@ for {set i 1} {\$i < \$n} {incr i} {
     \$all move [measure fit \$sel \$ref]
     }
 
-#calc & out protein CA rmsd
+############################
+#calc & out protein CA rmsd#
+############################
+
 set outfile [open "$OUT_DIR/${p}_${m}${n}_${r}_protein_rmsd.txt" w]
 set ref [atomselect top "protein and name CA" frame 0]
 set sel [atomselect top "protein and name CA"]
@@ -65,7 +80,10 @@ for {set i 1} {\$i < \$n} {incr i} {
   }
 close \$outfile
 
-#calc & out epitope CA rmsd
+############################
+#calc & out epitope CA rmsd#
+############################
+
 set outfile [open "$OUT_DIR/${p}_${m}${n}_${r}_epitope_rmsd.txt" w]
 set ref [atomselect top "protein and name CA and (resid $epitope)" frame 0]
 set sel [atomselect top "protein and name CA and (resid $epitope)"]
@@ -76,7 +94,10 @@ for {set i 0} {\$i < \$n} {incr i} {
 }
 close \$outfile
 
-#calc & out rmsf
+#################
+#calc & out rmsf#
+#################
+
 set outfile [open "$OUT_DIR/${p}_${m}${n}_${r}_rmsf.txt" w]
 set sel [atomselect top "protein and name CA"]
 set mol [\$sel molindex]
@@ -86,7 +107,10 @@ for {set i 0} {\$i < [\$sel num]} {incr i} {
     }
 close \$outfile
 
-#calc & out rgyr
+#################
+#calc & out rgyr#
+#################
+
 set mol [molinfo top]
 set outfile [open "$OUT_DIR/${p}_${m}${n}_${r}_rgyr.txt" w]
 set sel [atomselect top "protein"]
@@ -98,10 +122,12 @@ for {set i 0} {\$i < \$frames} {incr i} {
     set a [measure rgyr \$sel]
     puts \$outfile "\$i \$a"
     }
-\$sel delete
 close \$outfile
 
-#calc & out cn
+###############
+#calc & out cn#
+###############
+
 set outfile [open "$OUT_DIR/${p}_${m}${n}_${r}_cn.txt" w]
 set nf [molinfo top get numframes]
 set ca [atomselect top "name CA"]
@@ -117,7 +143,6 @@ for {set f 0} {\$f < \$nf} {incr f 25} {
         puts \$outfile "\$f \$index \$cn"
     }
 }
-
 close \$outfile
 exit
 EOF
@@ -133,6 +158,6 @@ fi
     done
 done
 
-python cn.py
+$PYTHON_EXE native_contact.py
 
 
