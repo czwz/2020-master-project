@@ -119,7 +119,7 @@ def sample(data, parameter, delta=500, skip_initial=4, scale_id=0.2):
     
     return trj_sample
 
-def get_sample_points(data, sample_data, standardize=True):
+def get_sample_points(data, sample_data):
     
     mask_data = data.index[ data.index != 'rmsf' ][1:]
     sample_points = pd.Series({"b":pd.Series([], dtype="float64"), "g":pd.Series([], dtype="float64")})
@@ -138,8 +138,6 @@ def get_sample_points(data, sample_data, standardize=True):
     for index in sample_points.index:
         sample_points[index] = sample_points[index].drop(0, axis=1)
         sample_points[index].index = np.arange(len(sample_points[index]))
-        if standardize:
-            sample_points[index] = (sample_points[index] - sample_points[index].mean()) / sample_points[index].std()
             
     return sample_points
 
